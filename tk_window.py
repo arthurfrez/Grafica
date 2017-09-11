@@ -2,11 +2,14 @@ import math
 import tkinter as tk
 from tkinter import Button, Entry, Canvas, PhotoImage
 
+# DDA, Círculo, Recorte, Equação paramétrica, Translação, Escala, Rotação, Bresenham
+# https://stackoverflow.com/questions/8936183/bresenham-lines-w-o-diagonal-movement
 
 class MainApplication(tk.Frame):
     """Classe da Aplicacao"""
 
-    point_button_type = 0 #botoes de adquirir os pontos
+    button_panel_items = []
+    point_button_type = 0 # botoes de adquirir os pontos
     x_point1 = y_point1 = 0
     x_point2 = y_point2 = 0
 
@@ -32,35 +35,47 @@ class MainApplication(tk.Frame):
         self.button_frame = tk.Frame(self.window, bg='#2c3e50')
         self.button_frame.pack(side='left', fill='both')
 
-        self.entry1 = Entry(self.button_frame)
-        self.entry1.insert(0, '(0, 0)')
-        self.entry1.config(state='readonly')
-        self.entry1.pack(padx=5, pady=15)
-        self.entry2 = Entry(self.button_frame)
-        self.entry2.insert(0, '(0, 0)')
-        self.entry2.config(state='readonly')
-        self.entry2.pack(padx=5)
+        entry1 = Entry(self.button_frame)
+        self.set_textField(entry1, 0, 0)
+        self.button_panel_items.append(entry1)
 
-        self.b_point1 = Button(self.button_frame, text='Set Point 1',
+        entry2 = Entry(self.button_frame)
+        self.set_textField(entry2, 0, 0)
+        self.button_panel_items.append(entry2)
+
+        b_point1 = Button(self.button_frame, text='Set Point 1',
                                command=self.set_point1)
-        self.b_point1.pack(padx=10, pady=10, fill='x')
-        self.b_point2 = Button(self.button_frame, text='Set Point 2',
+        self.button_panel_items.append(b_point1)
+        b_point2 = Button(self.button_frame, text='Set Point 2',
                                command=self.set_point2)
-        self.b_point2.pack(padx=10, pady=5, fill='x')
+        self.button_panel_items.append(b_point2)
 
         separator = tk.Frame(self.button_frame,
                              relief='ridge', height=2, bg="#7f8c8d")
-        separator.pack(pady=5, fill='x')
+        self.button_panel_items.append(separator)
 
-        self.b_dda = Button(self.button_frame, text='DDA',
+        b_dda = Button(self.button_frame, text='DDA',
                                command=self.DDA_algorithm)
-        self.b_dda.pack(padx=10, pady=5, fill='x')
-        self.b_circle = Button(self.button_frame, text='Circulo',
+        self.button_panel_items.append(b_dda)
+        b_circle = Button(self.button_frame, text='Circulo',
                                command=self.midpoint_circle_algoritm)
-        self.b_circle.pack(padx=10, pady=10, fill='x')
-        self.b_clear = Button(self.button_frame, text='Clear',
+        self.button_panel_items.append(b_circle)
+        b_bresenham = Button(self.button_frame, text='Bresenham',
+                               command=self.bresenham_algorithm)
+        self.button_panel_items.append(b_bresenham)
+        b_clear = Button(self.button_frame, text='Clear',
                                command=self.clear_canvas)
-        self.b_clear.pack(padx=10, pady=5, fill='x')
+        self.button_panel_items.append(b_clear)
+
+        self.pack_button_panel()
+
+    def pack_button_panel(self):
+        num = 0;
+
+        for x in self.button_panel_items:
+            num += 1
+            x.pack(padx=10, pady=(5*num), fill='x')
+            num %= 2
 
     def create_paint_screen(self):
         """Cria o canvas e a imagem usada para pintar pixels na tela"""
@@ -80,7 +95,6 @@ class MainApplication(tk.Frame):
 
         if(self.point_button_type != 0):
             b_type = self.point_button_type
-            color = '#ff0000' if b_type == 1 else '#ff0066'
             entry_ref = self.entry1 if b_type == 1 else self.entry2
 
             if(b_type == 1):
@@ -90,16 +104,22 @@ class MainApplication(tk.Frame):
                 self.x_point2 = event.x
                 self.y_point2 = event.y
 
-            self.paint_point(event.x, event.y, color)
-            entry_ref.config(state='normal')
-            entry_ref.delete(0,'end')
-            entry_ref.insert(0, '(' + str(event.x) + ' , '+str(event.y) + ')')
-            entry_ref.config(state='readonly')
+            self.paint_point(event.x, event.y, '#ff0000')
+            self.set_textField(entry_ref, event.x, event.y)
 
         self.point_button_type = 0
 
+    def set_textField(self, entry_ref, x, y):
+        """Metodo que muda o texto dos textfield"""
+
+        entry_ref.config(state='normal')
+        entry_ref.delete(0,'end')
+        entry_ref.insert(0, '(' + str(x) + ' , '+str(y) + ')')
+        entry_ref.config(state='readonly')
+
     def on_resize(self, event):
         """Metodo de resposta ao ajuste do tamanho da janela"""
+
         c_width = event.width
         c_height = event.height
         self.img.config(width=c_width, height=c_height)
@@ -134,7 +154,8 @@ class MainApplication(tk.Frame):
     def paint_pixel(self, x, y, color):
         """Metodo que pinta um pixel no canvas"""
 
-        self.img.put(color, (x, y))
+        if(x >= 0 and y >= 0):
+            self.img.put(color, (x, y))
 
     def clear_canvas(self):
         """Metodo que limpa o canvas (destruindo e recriando-o)"""
@@ -197,6 +218,30 @@ class MainApplication(tk.Frame):
                 x -= 1
                 dx += 2
                 err += (-radius * 2) + dx
+
+    def bresenham_algorithm(self):
+        slope = 0
+        delta_x = self.x_point2 - self.x_point1
+        delta_y = self.y_point2 - self.y_point1
+
+        if(delta_y < 0):
+            slope = -1
+            delta_y = -delta_y
+        else:
+            slope = 1
+
+        incE = delta_y * 2
+        incNE = 2 * delta_y - 2 * delta_x
+        d = 2 * delta_y - delta_x
+        y = self.y_point1
+
+        for x in range(self.x_point1, self.x_point2):
+            self.paint_pixel(x, y, '#000000')
+            if(d <= 0):
+                d += incE
+            else:
+                d += incNE
+                y += slope
 
 # Executando a classe
 if __name__ == '__main__':
